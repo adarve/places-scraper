@@ -28,118 +28,135 @@ function initMap() {
 
 	// Location entered into search box
 	var markers = [];
-	searchBox.addListener('places_changed', function() {
 
 	// Set global list
 	list = [];
+    markers = [];
 
 	// Get places
-	var places = searchBox.getPlaces();
-	if (places.length === 0) {
-		return;
-	}
+	searchBox.addListener('places_changed', function() {
 
-	// Clear out old markers
-	markers.forEach(function(marker) {
-		marker.setMap(null);
-	});
-	markers = [];
+        var places = searchBox.getPlaces();
+        if (places.length === 0) {
+            return;
+        }
 
-	// For each place, get the icon, name and location.
-	var bounds = new google.maps.LatLngBounds();
-	places.forEach(function(place) {
+        // Clear out old markers
+        markers.forEach(function(marker) {
+            marker.setMap(null);
+        });
 
-		// Nothing found
-		if (!place.geometry) {
-			console.log("Returned place contains no geometry");
-			return;
-		}
+        // For each place, get the icon, name and location.
+        var bounds = new google.maps.LatLngBounds();
+        places.forEach(function(place) {
 
-		// Icon
-		var icon = {
-			url: place.icon,
-			size: new google.maps.Size(71, 71),
-			origin: new google.maps.Point(0, 0),
-			anchor: new google.maps.Point(17, 34),
-			scaledSize: new google.maps.Size(25, 25)
-		};
+            // Nothing found
+            if (!place.geometry) {
+                console.log("Returned place contains no geometry");
+                return;
+            }
 
-		// Create a marker for each place.
-		var marker = new google.maps.Marker({
-			map: map,
-			icon: icon,
-			title: place.name,
-			position: place.geometry.location
-		});
+            // Icon
+            var icon = {
+                url: place.icon,
+                size: new google.maps.Size(71, 71),
+                origin: new google.maps.Point(0, 0),
+                anchor: new google.maps.Point(17, 34),
+                scaledSize: new google.maps.Size(25, 25)
+            };
 
-		// Place details
-		var request = { reference: place.reference };
-		var details = new google.maps.places.PlacesService(map);
-		details.getDetails(request, function(details, status) {
+            // Create a marker for each place.
+            var marker = new google.maps.Marker({
+                map: map,
+                icon: icon,
+                title: place.name,
+                position: place.geometry.location
+            });
 
-			// Add to object
-			var obj = {
-			"name": place.name,
-			"address": place.formatted_address,
-			"website": "",
-			"phone_number": "",
-			"emails": ""
-			};
+            // Place details
+            var request = { reference: place.reference };
+            var details = new google.maps.places.PlacesService(map);
+            details.getDetails(request, function(details, status) {
 
-			// E-Mails
-			var emails = '';
-			if (details != null) {
+                // Add to object
+                var placeStr = JSON.stringify(place).replace("|", "-");
+                placeStr = placeStr.replace(/"/g, '""');
+                placeStr = placeStr.replace(/,/g, '\,');
+                placeStr = placeStr.replace(/'/g, '\'');
 
-				if (details.website != null) {
-					var emailList = [];
-					$.get("https://api.hunter.io/v2/domain-search?api_key="+hunter_key+"&domain="+details.website, function( data ) {
-					$.each(data.data.emails, function(index, value) {
-						emails += '<a href="mailto:'+value.value+'">'+value.value+'</a><br>';
-						emailList.push(value.value);
-					});
-					});
-					obj.website = details.website;
-					obj.emails = emailList;
-				}
+                var obj = {
+                    "name": place.name,
+                    "address": place.formatted_address,
+                    "website": "",
+                    "phone_number": "",
+                    "emails": "",
+                    "lat": place.geometry.location.lat(),
+                    "lon": place.geometry.location.lng(),
+                    "place": placeStr
+                };
 
-				if (details.formatted_phone_number != null) {
-					obj.phone_number = details.formatted_phone_number;
-				}
+                // E-Mails
+                var emails = '';
+                if (details != null) {
 
-			}
+                    /*
+                    if (details.website != null) {
+                        var emailList = [];
+                        $.get("https://api.hunter.io/v2/domain-search?api_key="+hunter_key+"&domain="+details.website, function( data ) {
+                        $.each(data.data.emails, function(index, value) {
+                            emails += '<a href="mailto:'+value.value+'">'+value.value+'</a><br>';
+                            emailList.push(value.value);
+                        });
+                        });
+                        obj.website = details.website;
+                        obj.emails = emailList;
+                    }
+                    */
 
-			// Push to master list
-			list.push(obj);
+                    if (details.formatted_phone_number != null) {
+                        obj.phone_number = details.formatted_phone_number;
+                    }
 
-			// If marker clicked
-			google.maps.event.addListener(marker, 'click', function() {
+                }
 
-				// Set info bubble
-				infowindow.setContent('<div><h2>' + place.name + '</h2><br>' +
-					'<span class="title">Address</span><br>' + place.formatted_address + '<br><br>' +
-					(obj.phone_number === "" ? '' : '<span class="title">Phone Number</span><br>' + obj.phone_number + '<br><br>') +
-					(obj.website === "" ? '' : '<span class="title">Website</span><br><a target="_blank" href="' + obj.website + '" title="'+ obj.website + '">'+ obj.website.substring(0,50) + '</a><br><br>') +
-					(emails.length > 0 ? '<span class="title">E-Mail(s)</span><br>' + emails : '') +
-					'</div>');
-				infowindow.open(map, this);
+                // Push to master list
+                list.push(obj);
 
-			});
+                // If marker clicked
+                google.maps.event.addListener(marker, 'click', function() {
 
-		});
+                    // Set info bubble
+                    infowindow.setContent('<div><h2>' + place.name + '</h2><br>' +
+                        '<span class="title">Address</span><br>' + place.formatted_address + '<br><br>' +
+                        (obj.phone_number === "" ? '' : '<span class="title">Phone Number</span><br>' + obj.phone_number + '<br><br>') +
+                        (obj.website === "" ? '' : '<span class="title">Website</span><br><a target="_blank" href="' + obj.website + '" title="'+ obj.website + '">'+ obj.website.substring(0,50) + '</a><br><br>') +
+                        (emails.length > 0 ? '<span class="title">E-Mail(s)</span><br>' + emails : '') +
+                        '</div>');
+                    infowindow.open(map, this);
 
-		// Add to markers
-		markers.push(marker);
+                });
 
-		// Viewport
-		if (place.geometry.viewport) {
-			bounds.union(place.geometry.viewport);
-		} else {
-			bounds.extend(place.geometry.location);
-		}
+            });
 
-		});
+            // Add to markers
+            markers.push(marker);
 
-		map.fitBounds(bounds);
+            // Viewport
+            if (place.geometry.viewport) {
+                bounds.union(place.geometry.viewport);
+            } else {
+                bounds.extend(place.geometry.location);
+            }
+
+        });
+
+        setTimeout(function() {
+            if (list && list.length > 0) {
+                downloadCSV(list);
+            }
+        }, 500);
+
+        map.fitBounds(bounds);
 	});
 }
 
